@@ -5,19 +5,21 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	sqlite3 "github.com/mattn/go-sqlite3"
-	"github.com/mvdan/xurls"
-	"golang.org/x/net/idna"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/mvdan/xurls"
+	"golang.org/x/net/idna"
 )
+
+var dbLock sync.Mutex
 
 func checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
@@ -102,7 +104,10 @@ func execOrPanic(db *sql.DB, sql string) {
 }
 
 func prepareOrPanic(db *sql.DB, sql string) *sql.Stmt {
+	dbLock.Lock()
 	stat, err := db.Prepare(sql)
+	dbLock.Unlock()
+
 	if nil != err {
 		log.Panic(err)
 	}
@@ -111,7 +116,10 @@ func prepareOrPanic(db *sql.DB, sql string) *sql.Stmt {
 
 func statExecOrPanic(stmt *sql.Stmt, args ...interface{}) {
 	for i := 0; i < 5; i += 1 {
+		dbLock.Lock()
 		_, err := stmt.Exec(args...)
+		dbLock.Unlock()
+
 		if nil == err {
 			return
 		}
@@ -131,7 +139,7 @@ func statExecOrPanic(stmt *sql.Stmt, args ...interface{}) {
 			return
 		}
 
-		log.Panic(err, sqlErr.Code, sqlErr.ExtendedCode, sqlite3.ErrConstraintUnique, reflect.TypeOf(err))
+		log.Panic(err)
 	}
 
 	log.Panic("couldn't complete db query")
