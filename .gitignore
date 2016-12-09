@@ -2,3 +2,6 @@
 httpsspider
 *.db
 *.db-journal
+data-raw-table
+data-used-autnums
+autnums.tsv
